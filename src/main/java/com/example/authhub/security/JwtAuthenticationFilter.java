@@ -3,8 +3,10 @@ package com.example.authhub.security;
 import com.example.authhub.service.RedisTokenService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
-import jakarta.servlet.http.*;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.lang.NonNull;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
@@ -20,25 +22,46 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final RedisTokenService redisTokenService;
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request,
-                                    HttpServletResponse response,
-                                    FilterChain filterChain)
-            throws ServletException, IOException {
+    protected void doFilterInternal(
+            @NonNull HttpServletRequest request,
+            @NonNull HttpServletResponse response,
+            @NonNull FilterChain filterChain
+    ) throws ServletException, IOException {
 
-        String token = resolveToken(request);
+        try {
+            String token = resolveToken(request);
 
-        if (token != null && jwtTokenProvider.validate(token)) {
-            String jti = jwtTokenProvider.getJti(token);
+            // 토큰 존재 + 구조적 유효성 검증
+            if (token != null && jwtTokenProvider.validate(token)) {
 
-            if (!redisTokenService.isAccessTokenBlacklisted(jti)) {
-                Authentication authentication = jwtTokenProvider.getAuthentication(token);
-                SecurityContextHolder.getContext().setAuthentication(authentication);
+                // Access Token 블랙리스트 확인
+                String jti = jwtTokenProvider.getJti(token);
+                boolean isBlacklisted =
+                        redisTokenService.isAccessTokenBlacklisted(jti);
+
+                if (!isBlacklisted) {
+                    // 인증 객체 생성
+                    Authentication authentication =
+                            jwtTokenProvider.getAuthentication(token);
+
+                    // SecurityContext에 인증 정보 저장
+                    SecurityContextHolder.getContext()
+                            .setAuthentication(authentication);
+                }
             }
-        }
 
-        filterChain.doFilter(request, response);
+            // 다음 필터 진행
+            filterChain.doFilter(request, response);
+
+        } finally {
+            // 요청 종료 시 SecurityContext 정리 (중요)
+            SecurityContextHolder.clearContext();
+        }
     }
 
+    /**
+     * Authorization Header에서 Bearer 토큰 추출
+     */
     private String resolveToken(HttpServletRequest request) {
         String bearer = request.getHeader("Authorization");
         if (bearer != null && bearer.startsWith("Bearer ")) {

@@ -1,10 +1,15 @@
 package com.example.authhub.service;
 
 import com.example.authhub.domain.client.Client;
+import com.example.authhub.domain.user.AuthProvider;
+import com.example.authhub.domain.user.Role;
 import com.example.authhub.domain.user.User;
 import com.example.authhub.dto.auth.request.LoginRequest;
 import com.example.authhub.dto.auth.request.RefreshTokenRequest;
+import com.example.authhub.dto.auth.request.SignupRequest;
 import com.example.authhub.dto.auth.response.LoginResponse;
+import com.example.authhub.exception.AuthException;
+import com.example.authhub.exception.ErrorCode;
 import com.example.authhub.repository.ClientRepository;
 import com.example.authhub.repository.UserRepository;
 import com.example.authhub.security.JwtTokenProvider;
@@ -13,7 +18,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.*;
+import java.util.List;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -26,18 +32,40 @@ public class AuthService {
     private final JwtTokenProvider jwtTokenProvider;
     private final RedisTokenService redisTokenService;
 
+    /* ==========================
+       회원가입
+    ========================== */
+    public void signup(SignupRequest request) {
+        if (userRepository.existsByEmail(request.getEmail())) {
+            throw new AuthException(ErrorCode.EMAIL_ALREADY_EXISTS);
+        }
+
+        User user = User.builder()
+                .email(request.getEmail())
+                .password(passwordEncoder.encode(request.getPassword()))
+                .provider(AuthProvider.LOCAL)
+                .role(Role.ROLE_USER)
+                .enabled(true)
+                .build();
+
+        userRepository.save(user);
+    }
+
+    /* ==========================
+       로그인
+    ========================== */
     public LoginResponse login(LoginRequest request) {
         User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new IllegalArgumentException("이메일 또는 비밀번호가 올바르지 않습니다."));
+                .orElseThrow(() -> new AuthException(ErrorCode.INVALID_CREDENTIALS));
 
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
-            throw new IllegalArgumentException("이메일 또는 비밀번호가 올바르지 않습니다.");
+            throw new AuthException(ErrorCode.INVALID_CREDENTIALS);
         }
 
         Client client = clientRepository.findByClientId(request.getClientId())
-                .orElseThrow(() -> new IllegalArgumentException("유효하지 않은 clientId 입니다."));
+                .orElseThrow(() -> new AuthException(ErrorCode.INVALID_CLIENT));
 
-        List<String> roles = Arrays.asList(user.getRoles().split(","));
+        List<String> roles = List.of(user.getRole().name());
 
         String accessToken = jwtTokenProvider.createAccessToken(
                 user.getId(),
@@ -45,14 +73,18 @@ public class AuthService {
                 roles
         );
 
-        // Refresh Token은 UUID 문자열로
         String refreshToken = UUID.randomUUID().toString();
 
         long refreshTtl = client.getRefreshTokenValidity() != null
                 ? client.getRefreshTokenValidity()
-                : 7 * 24 * 60 * 60; // default 7일
+                : 7 * 24 * 60 * 60;
 
-        redisTokenService.storeRefreshToken(refreshToken, user.getId(), client.getClientId(), refreshTtl);
+        redisTokenService.storeRefreshToken(
+                refreshToken,
+                user.getId(),
+                client.getClientId(),
+                refreshTtl
+        );
 
         long accessTtl = client.getAccessTokenValidity() != null
                 ? client.getAccessTokenValidity()
@@ -66,26 +98,26 @@ public class AuthService {
                 .build();
     }
 
+    /* ==========================
+       토큰 재발급
+    ========================== */
     public LoginResponse refresh(RefreshTokenRequest request) {
-        String refreshToken = request.getRefreshToken();
-
-        boolean valid = redisTokenService.validateRefreshToken(refreshToken, request.getClientId());
-        if (!valid) {
-            throw new IllegalArgumentException("유효하지 않은 Refresh Token 입니다.");
+        if (!redisTokenService.validateRefreshToken(request.getRefreshToken(), request.getClientId())) {
+            throw new AuthException(ErrorCode.INVALID_REFRESH_TOKEN);
         }
 
-        Long userId = redisTokenService.getUserIdFromRefreshToken(refreshToken);
+        Long userId = redisTokenService.getUserIdFromRefreshToken(request.getRefreshToken());
         if (userId == null) {
-            throw new IllegalArgumentException("유효하지 않은 Refresh Token 입니다.");
+            throw new AuthException(ErrorCode.INVALID_REFRESH_TOKEN);
         }
 
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
+                .orElseThrow(() -> new AuthException(ErrorCode.USER_NOT_FOUND));
 
         Client client = clientRepository.findByClientId(request.getClientId())
-                .orElseThrow(() -> new IllegalArgumentException("유효하지 않은 clientId 입니다."));
+                .orElseThrow(() -> new AuthException(ErrorCode.INVALID_CLIENT));
 
-        List<String> roles = Arrays.asList(user.getRoles().split(","));
+        List<String> roles = List.of(user.getRole().name());
 
         String newAccessToken = jwtTokenProvider.createAccessToken(
                 user.getId(),
@@ -93,15 +125,20 @@ public class AuthService {
                 roles
         );
 
-        // 회전: 기존 refresh는 삭제 후 새로 발급
-        redisTokenService.deleteRefreshToken(refreshToken);
+        // Refresh Token 회전
+        redisTokenService.deleteRefreshToken(request.getRefreshToken());
 
         String newRefreshToken = UUID.randomUUID().toString();
         long refreshTtl = client.getRefreshTokenValidity() != null
                 ? client.getRefreshTokenValidity()
                 : 7 * 24 * 60 * 60;
 
-        redisTokenService.storeRefreshToken(newRefreshToken, user.getId(), client.getClientId(), refreshTtl);
+        redisTokenService.storeRefreshToken(
+                newRefreshToken,
+                user.getId(),
+                client.getClientId(),
+                refreshTtl
+        );
 
         long accessTtl = client.getAccessTokenValidity() != null
                 ? client.getAccessTokenValidity()
@@ -115,15 +152,21 @@ public class AuthService {
                 .build();
     }
 
-    public void logout(String accessToken, String refreshToken) {
-        // Access Token blacklist 등록
+    /* ==========================
+       로그아웃
+    ========================== */
+    public void logout(String authorizationHeader) {
+        if (authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")) {
+            throw new AuthException(ErrorCode.UNAUTHORIZED);
+        }
+
+        String accessToken = authorizationHeader.replace("Bearer ", "");
+
         String jti = jwtTokenProvider.getJti(accessToken);
         long ttl = jwtTokenProvider.getRemainingValiditySeconds(accessToken);
         redisTokenService.blacklistAccessToken(jti, ttl);
 
-        // Refresh Token 삭제
-        if (refreshToken != null && !refreshToken.isBlank()) {
-            redisTokenService.deleteRefreshToken(refreshToken);
-        }
+        Long userId = jwtTokenProvider.getUserId(accessToken);
+        redisTokenService.deleteRefreshTokenByUserId(userId);
     }
 }

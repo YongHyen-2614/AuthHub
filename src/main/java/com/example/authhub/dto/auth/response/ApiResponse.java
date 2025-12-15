@@ -1,39 +1,33 @@
 package com.example.authhub.dto.auth.response;
 
-import lombok.*;
+import lombok.Getter;
 
 @Getter
-@Setter
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
 public class ApiResponse<T> {
 
-    private boolean success;
-    private T data;
-    private ErrorInfo error;
+    private final boolean success;
+    private final String code;
+    private final String message;
+    private final T data;
 
-    public static <T> ApiResponse<T> ok(T data) {
-        return ApiResponse.<T>builder()
-                .success(true)
-                .data(data)
-                .build();
+    private ApiResponse(boolean success, String code, String message, T data) {
+        this.success = success;
+        this.code = code;
+        this.message = message;
+        this.data = data;
     }
 
-    public static <T> ApiResponse<T> error(String code, String message, int status) {
-        return ApiResponse.<T>builder()
-                .success(false)
-                .error(new ErrorInfo(code, message, status))
-                .build();
+    /* 성공 */
+    public static <T> ApiResponse<T> success(String code, String message, T data) {
+        return new ApiResponse<>(true, code, message, data);
     }
 
-    @Getter
-    @Setter
-    @NoArgsConstructor
-    @AllArgsConstructor
-    public static class ErrorInfo {
-        private String code;
-        private String message;
-        private int status;
+    public static ApiResponse<Void> success(String code, String message) {
+        return new ApiResponse<>(true, code, message, null);
+    }
+
+    /* 실패 */
+    public static ApiResponse<Void> error(String code, String message) {
+        return new ApiResponse<>(false, code, message, null);
     }
 }

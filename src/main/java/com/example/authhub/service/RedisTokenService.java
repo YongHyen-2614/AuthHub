@@ -4,7 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
-import java.time.Duration;
+import java.util.concurrent.TimeUnit;
 
 @Service
 @RequiredArgsConstructor
@@ -12,56 +12,69 @@ public class RedisTokenService {
 
     private final StringRedisTemplate redisTemplate;
 
-    private String refreshKey(String refreshToken) {
-        return "refresh_token:" + refreshToken;
-    }
+    private static final String REFRESH_PREFIX = "refresh:";
+    private static final String ACCESS_BLACKLIST_PREFIX = "blacklist:access:";
 
-    private String blacklistKey(String jti) {
-        return "blacklist:access:" + jti;
-    }
+    /* Refresh Token 저장 */
+    public void storeRefreshToken(String refreshToken,
+                                  Long userId,
+                                  String clientId,
+                                  long ttlSeconds) {
 
-    public void storeRefreshToken(String refreshToken, Long userId, String clientId, long ttlSeconds) {
-        String key = refreshKey(refreshToken);
+        String key = REFRESH_PREFIX + refreshToken;
         String value = userId + ":" + clientId;
-        redisTemplate.opsForValue().set(key, value, Duration.ofSeconds(ttlSeconds));
+
+        redisTemplate.opsForValue()
+                .set(key, value, ttlSeconds, TimeUnit.SECONDS);
     }
 
+    /* Refresh Token 검증 */
     public boolean validateRefreshToken(String refreshToken, String clientId) {
-        String key = refreshKey(refreshToken);
-        String value = redisTemplate.opsForValue().get(key);
+        String value = redisTemplate.opsForValue()
+                .get(REFRESH_PREFIX + refreshToken);
+
         if (value == null) return false;
 
-        // "userId:clientId" 형태라 가정
         String[] parts = value.split(":");
-        if (parts.length != 2) return false;
-
-        String storedClientId = parts[1];
-        return storedClientId.equals(clientId);
+        return parts.length == 2 && parts[1].equals(clientId);
     }
 
+    /* Refresh Token → userId 추출 */
     public Long getUserIdFromRefreshToken(String refreshToken) {
-        String key = refreshKey(refreshToken);
-        String value = redisTemplate.opsForValue().get(key);
+        String value = redisTemplate.opsForValue()
+                .get(REFRESH_PREFIX + refreshToken);
+
         if (value == null) return null;
-        String[] parts = value.split(":");
-        if (parts.length != 2) return null;
-        return Long.valueOf(parts[0]);
+
+        return Long.parseLong(value.split(":")[0]);
     }
 
+    /* Refresh Token 삭제 */
     public void deleteRefreshToken(String refreshToken) {
-        redisTemplate.delete(refreshKey(refreshToken));
+        redisTemplate.delete(REFRESH_PREFIX + refreshToken);
     }
+
+    /* ===== Access Token Blacklist ===== */
 
     public void blacklistAccessToken(String jti, long ttlSeconds) {
-        redisTemplate.opsForValue().set(
-                blacklistKey(jti),
-                "true",
-                Duration.ofSeconds(ttlSeconds)
-        );
+        redisTemplate.opsForValue()
+                .set(ACCESS_BLACKLIST_PREFIX + jti, "true", ttlSeconds, TimeUnit.SECONDS);
+    }
+
+    public void deleteRefreshTokenByUserId(Long userId) {
+        String pattern = "refresh:*";
+
+        redisTemplate.keys(pattern).forEach(key -> {
+            String value = redisTemplate.opsForValue().get(key);
+            if (value != null && value.startsWith(userId + ":")) {
+                redisTemplate.delete(key);
+            }
+        });
     }
 
     public boolean isAccessTokenBlacklisted(String jti) {
-        String value = redisTemplate.opsForValue().get(blacklistKey(jti));
-        return value != null;
+        return Boolean.TRUE.equals(
+                redisTemplate.hasKey(ACCESS_BLACKLIST_PREFIX + jti)
+        );
     }
 }
