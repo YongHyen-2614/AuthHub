@@ -1,94 +1,95 @@
-AuthHub
+🔐 AuthHub
 
-공통 인증 인프라(Auth Server)
+공통 인증 인프라 (Auth Server)
 여러 서비스에서 공통으로 사용할 수 있는 OAuth2 스타일 인증 서버
 
-1. 프로젝트 개요
+📌 1. 프로젝트 개요
 
 AuthHub는 여러 서비스(Web, Mobile, Internal API 등)가
-공통으로 사용할 수 있는 중앙 인증 서버를 목표로 한다. 
-기존에 익혔던 기술을 복습하며, 여러 방면으로 확장시킨다.
+공통으로 사용할 수 있는 중앙 인증 서버를 목표로 한다.
 
-핵심 목표
+기존에 학습했던 인증·보안 관련 기술을 복습하고,
+이를 기반으로 실무에서 사용 가능한 구조로 확장하는 데 초점을 맞췄다.
 
-JWT 기반 인증
+🎯 핵심 목표
 
-Access / Refresh Token 분리
+🔑 JWT 기반 인증
 
-Redis 기반 토큰 관리
+🔄 Access / Refresh Token 분리
 
-OAuth2 Authorization Code Flow 확장 가능 구조
+⚡ Redis 기반 토큰 관리
 
-공통 응답 포맷 & 글로벌 예외 처리
+🌐 OAuth2 Authorization Code Flow 확장 가능 구조
 
-2. 전체 아키텍처
+🧩 공통 응답 포맷 & Global Exception Handling
+
+🏗 2. 전체 아키텍처
 [ Client Apps ]
    └── Web / Mobile / Other Services
         |
         v
 [ AuthHub API Server ]
         |
-        ├── MySQL (영구 데이터)
+        ├── 🗄 MySQL (영구 데이터)
         │     ├─ users
         │     ├─ clients
         │     └─ login_histories
         |
-        └── Redis (토큰 관리)
+        └── ⚡ Redis (토큰 관리)
               ├─ refresh_token:{token}
               └─ blacklist:access:{jti}
 
-3. 기술 스택
+🛠 3. 기술 스택
 
-Java 17
+☕ Java 17
 
-Spring Boot 3.3
+🌱 Spring Boot 3.3
 
-Spring Security
+🔐 Spring Security
 
-Spring Data JPA
+🧬 Spring Data JPA
 
-Spring Data Redis
+🚀 Spring Data Redis
 
-MySQL
+🗄 MySQL
 
-Redis
+⚡ Redis
 
-JWT (jjwt)
+🔑 JWT (jjwt)
 
-4. 현재까지 구현된 기능 (Implemented)
-4.1 인증 기능
+✅ 4. 현재까지 구현된 기능 (Implemented)
+🔐 4.1 인증 기능
 
-회원가입
+👤 회원가입
 
-이메일 + 비밀번호 로그인
+📧 이메일 + 비밀번호 로그인
 
-JWT Access Token 발급
+🔑 JWT Access Token 발급
 
-Refresh Token 발급 및 회전(Rotation)
+🔄 Refresh Token 발급 및 회전(Rotation)
 
-로그아웃
+🚪 로그아웃
 
 Access Token 블랙리스트 처리
 
 Refresh Token 삭제
 
-4.2 토큰 관리 전략
-
-Access Token
+🔄 4.2 토큰 관리 전략
+🔑 Access Token
 
 JWT 기반 (Stateless)
 
 로그아웃 시 Redis 블랙리스트(jti) 활용
 
-Refresh Token
+🔄 Refresh Token
 
 Redis 저장
 
-클라이언트별 TTL 적용
+Client별 TTL 적용
 
 재발급 시 기존 토큰 무효화 (Rotation)
 
-4.3 Client 기반 인증
+🧩 4.3 Client 기반 인증
 
 clientId 기반 로그인
 
@@ -96,7 +97,7 @@ clientId 기반 로그인
 
 Client별 토큰 만료 정책 지원
 
-4.4 공통 응답 & 예외 처리
+🧱 4.4 공통 응답 & 예외 처리
 
 성공 / 실패 공통 응답 포맷
 
@@ -104,18 +105,18 @@ GlobalExceptionHandler를 통한 예외 일괄 처리
 
 에러 코드 체계화 (ErrorCode, SuccessCode)
 
-4.5 보안
+🛡 4.5 보안
 
-BCrypt 비밀번호 해시
+🔒 BCrypt 비밀번호 해시
 
-JWT 서명 검증
+✍️ JWT 서명 검증
 
-Redis 기반 토큰 무효화
+🚫 Redis 기반 토큰 무효화
 
-Spring Security Filter 기반 인증 처리
+🧩 Spring Security Filter 기반 인증 처리
 
-5. API 명세 (현재 구현됨)
-5.1 회원가입
+📬 5. API 명세 (현재 구현됨)
+👤 5.1 회원가입
 
 POST /auth/signup
 
@@ -124,7 +125,7 @@ POST /auth/signup
   "password": "password123"
 }
 
-5.2 로그인
+🔐 5.2 로그인
 
 POST /auth/login
 
@@ -134,7 +135,7 @@ POST /auth/login
   "clientId": "web-client"
 }
 
-5.3 토큰 재발급
+🔄 5.3 토큰 재발급
 
 POST /auth/refresh
 
@@ -143,16 +144,16 @@ POST /auth/refresh
   "clientId": "web-client"
 }
 
-5.4 로그아웃
+🚪 5.4 로그아웃
 
 POST /auth/logout
 
-Header:
+Header
 
 Authorization: Bearer {accessToken}
 
-6. 데이터 설계 (현재 사용 중)
-Users
+🗂 6. 데이터 설계 (현재 사용 중)
+👤 Users
 
 사용자 계정 정보
 
@@ -160,24 +161,24 @@ Users
 
 역할(Role) 기반 권한 관리
 
-Clients
+🧩 Clients
 
 인증을 요청하는 외부 서비스 정보
 
 Client별 토큰 정책 관리
 
-7. Redis 구조 (현재 사용 중)
-Refresh Token
+⚡ 7. Redis 구조 (현재 사용 중)
+🔄 Refresh Token
 refresh_token:{token} → userId, clientId
 
-Access Token Blacklist
+🚫 Access Token Blacklist
 blacklist:access:{jti} → true
 
-8. 추후 구현 예정 기능 (Planned)
+🧭 8. 추후 구현 예정 기능 (Planned)
 
-아래 기능들은 현재 설계에 반영되어 있으며, 단계적으로 확장 예정
+아래 기능들은 현재 설계에 반영되어 있으며, 단계적으로 확장할 예정이다.
 
-8.1 OAuth2 Authorization Code Flow
+🌐 8.1 OAuth2 Authorization Code Flow
 
 /oauth/authorize
 
@@ -189,25 +190,25 @@ Redirect URI 검증
 
 State 파라미터를 통한 CSRF 방어
 
-8.2 사용자 동의(Consent) 관리
+🤝 8.2 사용자 동의(Consent) 관리
 
 user_consents 테이블
 
 Client별 Scope 동의 기록
 
-최초 로그인 시 동의 화면
+최초 로그인 시 동의 화면 제공
 
 기존 동의 Scope 재사용
 
-8.3 내 정보 조회 API
+🙋 8.3 내 정보 조회 API
 
 /auth/me
 
 Access Token 기반 사용자 정보 조회
 
-다른 서비스에서 AuthHub를 User Info 서버로 활용
+AuthHub를 User Info 서버로 활용
 
-8.4 소셜 로그인 연동
+🌍 8.4 소셜 로그인 연동
 
 Kakao / Naver
 
@@ -215,7 +216,7 @@ provider / provider_id 기반 계정 통합
 
 LOCAL + 소셜 계정 공존 구조
 
-8.5 관리자(Admin) 기능
+🛠 8.5 관리자(Admin) 기능
 
 Client 등록 / 수정 / 삭제
 
@@ -223,7 +224,7 @@ Client 등록 / 수정 / 삭제
 
 관리자 권한(Role 기반) 접근 제어
 
-8.6 보안 강화
+🔐 8.6 보안 강화
 
 Rate Limiting (Redis)
 
@@ -231,12 +232,12 @@ Rate Limiting (Redis)
 
 의심 로그인 탐지
 
-9. 설계 철학 요약
+🧠 9. 설계 철학 요약
 
-OAuth2/OIDC 구조를 최대한 존중
+📘 OAuth2/OIDC 구조를 최대한 존중
 
-실무에서 사용 가능한 인증 서버 구조
+🏗 실무에서 사용 가능한 인증 서버 구조
 
-Stateless JWT + Redis 조합
+🔄 Stateless JWT + Redis 조합
 
-확장 가능한 설계, 단계적 구현
+🚀 확장 가능한 설계, 단계적 구현
