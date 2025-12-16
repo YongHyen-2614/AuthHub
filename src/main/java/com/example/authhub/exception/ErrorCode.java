@@ -17,7 +17,8 @@ public enum ErrorCode {
     INVALID_REFRESH_TOKEN(HttpStatus.UNAUTHORIZED, "A004", "Refresh Token이 유효하지 않습니다."),
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "A005", "사용자를 찾을 수 없습니다."),
     INVALID_CLIENT(HttpStatus.BAD_REQUEST, "A006", "유효하지 않은 clientId 입니다."),
-    INVALID_AUTHORIZATION_HEADER(HttpStatus.UNAUTHORIZED, "A007", "Authorization 헤더가 유효하지 않습니다.");
+    INVALID_AUTHORIZATION_HEADER(HttpStatus.UNAUTHORIZED, "A007", "Authorization 헤더가 유효하지 않습니다."),
+    ALREADY_LOGGED_IN(HttpStatus.BAD_REQUEST, "A008", "이미 로그인 되었습니다."),;
 
     private final HttpStatus status;
     private final String code;

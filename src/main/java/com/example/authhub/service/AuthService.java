@@ -56,7 +56,6 @@ public class AuthService {
     ========================== */
     public LoginResponse login(LoginRequest request) {
 
-        // 1. 사용자 검증
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new AuthException(ErrorCode.INVALID_CREDENTIALS));
 
@@ -64,11 +63,14 @@ public class AuthService {
             throw new AuthException(ErrorCode.INVALID_CREDENTIALS);
         }
 
-        // 2. Client 검증
         Client client = clientRepository.findByClientId(request.getClientId())
                 .orElseThrow(() -> new AuthException(ErrorCode.INVALID_CLIENT));
 
-        // 3. Access Token 발급
+        // 중복 로그인 체크
+        if (redisTokenService.isAlreadyLoggedIn(user.getId(), client.getClientId())) {
+            throw new AuthException(ErrorCode.ALREADY_LOGGED_IN);
+        }
+
         List<String> roles = List.of(user.getRole().name());
 
         String accessToken = jwtTokenProvider.createAccessToken(
@@ -77,18 +79,11 @@ public class AuthService {
                 roles
         );
 
-        // 4. 중복 로그인 방지 (기존 세션 제거)
-        redisTokenService.deleteExistingSession(
-                user.getId(),
-                client.getClientId()
-        );
-
-        // 5. Refresh Token 발급
         String refreshToken = UUID.randomUUID().toString();
 
         long refreshTtl = client.getRefreshTokenValidity() != null
                 ? client.getRefreshTokenValidity()
-                : 7 * 24 * 60 * 60; // 기본 7일
+                : 7 * 24 * 60 * 60;
 
         redisTokenService.storeRefreshToken(
                 refreshToken,
@@ -97,7 +92,6 @@ public class AuthService {
                 refreshTtl
         );
 
-        // 6. Access Token TTL 계산
         long accessTtl = client.getAccessTokenValidity() != null
                 ? client.getAccessTokenValidity()
                 : jwtTokenProvider.getRemainingValiditySeconds(accessToken);

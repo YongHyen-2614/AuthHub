@@ -4,11 +4,10 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="f2fa592e-96c2-4eb6-8c29-1a996075e73a" name="Changes" comment="add: 회원가입 추가,&#10;add: 예외처리, 성공처리 추가,&#10;fix: jwt 관련 문제 수정&#10;(db 접속에 문제가 생겨 테스티 실패)">
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/example/authhub/dto/auth/request/LogoutRequest.java" afterDir="false" />
+    <list default="true" id="f2fa592e-96c2-4eb6-8c29-1a996075e73a" name="Changes" comment="fix: 중복 로그인 방지를 위해 로그인 시 자동로그아웃 로직 생성">
       <change afterPath="$PROJECT_DIR$/src/main/resources/application.yml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/example/authhub/controller/AuthController.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/example/authhub/controller/AuthController.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/example/authhub/exception/ErrorCode.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/example/authhub/exception/ErrorCode.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/com/example/authhub/service/AuthService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/example/authhub/service/AuthService.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/com/example/authhub/service/RedisTokenService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/example/authhub/service/RedisTokenService.java" afterDir="false" />
     </list>
@@ -149,7 +148,15 @@
       <option name="project" value="LOCAL" />
       <updated>1765782726412</updated>
     </task>
-    <option name="localTasksCounter" value="3" />
+    <task id="LOCAL-00003" summary="fix: 중복 로그인 방지를 위해 로그인 시 자동로그아웃 로직 생성">
+      <option name="closed" value="true" />
+      <created>1765859783687</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1765859783689</updated>
+    </task>
+    <option name="localTasksCounter" value="4" />
     <servers />
   </component>
   <component name="UnknownFeatures">
@@ -167,6 +174,7 @@
   <component name="VcsManagerConfiguration">
     <MESSAGE value="add: new project" />
     <MESSAGE value="add: 회원가입 추가,&#10;add: 예외처리, 성공처리 추가,&#10;fix: jwt 관련 문제 수정&#10;(db 접속에 문제가 생겨 테스티 실패)" />
-    <option name="LAST_COMMIT_MESSAGE" value="add: 회원가입 추가,&#10;add: 예외처리, 성공처리 추가,&#10;fix: jwt 관련 문제 수정&#10;(db 접속에 문제가 생겨 테스티 실패)" />
+    <MESSAGE value="fix: 중복 로그인 방지를 위해 로그인 시 자동로그아웃 로직 생성" />
+    <option name="LAST_COMMIT_MESSAGE" value="fix: 중복 로그인 방지를 위해 로그인 시 자동로그아웃 로직 생성" />
   </component>
 </project>

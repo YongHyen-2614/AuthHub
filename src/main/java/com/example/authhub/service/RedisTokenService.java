@@ -13,50 +13,41 @@ public class RedisTokenService {
     private final StringRedisTemplate redisTemplate;
 
     private static final String REFRESH_PREFIX = "refresh:";
-    private static final String USER_CLIENT_PREFIX = "user_client:";
     private static final String ACCESS_BLACKLIST_PREFIX = "blacklist:access:";
+    private static final String USER_CLIENT_PREFIX = "user_client:";
 
-    /* ==========================
-       Refresh Token 저장
-    ========================== */
+    /* =================================================
+       Refresh Token 저장 (로그인 시)
+       ================================================= */
     public void storeRefreshToken(
             String refreshToken,
             Long userId,
             String clientId,
-            long ttl
+            long ttlSeconds
     ) {
-        String tokenKey = "refresh:" + refreshToken;
-        String indexKey = "user_client:" + userId + ":" + clientId;
+        String refreshKey = REFRESH_PREFIX + refreshToken;
+        String indexKey = USER_CLIENT_PREFIX + userId + ":" + clientId;
 
-        // refreshToken → userId:clientId
+        // refresh:{token} -> userId:clientId
         redisTemplate.opsForValue()
-                .set(tokenKey, userId + ":" + clientId, ttl, TimeUnit.SECONDS);
+                .set(refreshKey, userId + ":" + clientId, ttlSeconds, TimeUnit.SECONDS);
 
-        // user+client → refreshToken (중복 로그인 제어용)
+        // user_client:{userId}:{clientId} -> refreshToken
         redisTemplate.opsForValue()
-                .set(indexKey, refreshToken, ttl, TimeUnit.SECONDS);
-    }
-    /* ==========================
-       중복 로그인 제거
-    ========================== */
-    public void deleteExistingSession(Long userId, String clientId) {
-        String indexKey = "user_client:" + userId + ":" + clientId;
-
-        String existingRefreshToken =
-                redisTemplate.opsForValue().get(indexKey);
-
-        if (existingRefreshToken != null) {
-            // 기존 Refresh Token 삭제
-            redisTemplate.delete("refresh:" + existingRefreshToken);
-
-            // 인덱스 삭제
-            redisTemplate.delete(indexKey);
-        }
+                .set(indexKey, refreshToken, ttlSeconds, TimeUnit.SECONDS);
     }
 
-    /* ==========================
+    /* =================================================
+       중복 로그인 체크
+       ================================================= */
+    public boolean isAlreadyLoggedIn(Long userId, String clientId) {
+        String indexKey = USER_CLIENT_PREFIX + userId + ":" + clientId;
+        return Boolean.TRUE.equals(redisTemplate.hasKey(indexKey));
+    }
+
+    /* =================================================
        Refresh Token 검증
-    ========================== */
+       ================================================= */
     public boolean validateRefreshToken(String refreshToken, String clientId) {
         String value = redisTemplate.opsForValue()
                 .get(REFRESH_PREFIX + refreshToken);
@@ -67,6 +58,9 @@ public class RedisTokenService {
         return parts.length == 2 && parts[1].equals(clientId);
     }
 
+    /* =================================================
+       Refresh Token → userId 추출
+       ================================================= */
     public Long getUserIdFromRefreshToken(String refreshToken) {
         String value = redisTemplate.opsForValue()
                 .get(REFRESH_PREFIX + refreshToken);
@@ -76,28 +70,40 @@ public class RedisTokenService {
         return Long.parseLong(value.split(":")[0]);
     }
 
+    /* =================================================
+       Refresh Token 단건 삭제 (회전/로그아웃)
+       ================================================= */
     public void deleteRefreshToken(String refreshToken) {
         redisTemplate.delete(REFRESH_PREFIX + refreshToken);
     }
 
+    /* =================================================
+       로그아웃 / 세션 만료 시
+       해당 유저의 모든 세션 제거
+       ================================================= */
     public void deleteAllSessionsByUser(Long userId) {
-        String pattern = "user_client:" + userId + ":*";
+        String pattern = USER_CLIENT_PREFIX + userId + ":*";
 
         redisTemplate.keys(pattern).forEach(indexKey -> {
             String refreshToken = redisTemplate.opsForValue().get(indexKey);
             if (refreshToken != null) {
-                redisTemplate.delete("refresh:" + refreshToken);
+                redisTemplate.delete(REFRESH_PREFIX + refreshToken);
             }
             redisTemplate.delete(indexKey);
         });
     }
 
-    /* ==========================
-       Access Token Blacklist
-    ========================== */
+    /* =================================================
+       Access Token 블랙리스트
+       ================================================= */
     public void blacklistAccessToken(String jti, long ttlSeconds) {
         redisTemplate.opsForValue()
-                .set(ACCESS_BLACKLIST_PREFIX + jti, "true", ttlSeconds, TimeUnit.SECONDS);
+                .set(
+                        ACCESS_BLACKLIST_PREFIX + jti,
+                        "true",
+                        ttlSeconds,
+                        TimeUnit.SECONDS
+                );
     }
 
     public boolean isAccessTokenBlacklisted(String jti) {
