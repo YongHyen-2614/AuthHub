@@ -4,7 +4,6 @@ import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.stereotype.Component;
@@ -65,6 +64,12 @@ public class JwtTokenProvider {
         return userId == null ? null : Long.valueOf(userId.toString());
     }
 
+    // 강제 로그아웃(logoutAt) 비교용 iat(ms)
+    public long getIssuedAtMillis(String token) {
+        Date issuedAt = parseClaims(token).getIssuedAt();
+        return issuedAt == null ? 0L : issuedAt.getTime();
+    }
+
     /* =======================
        Access Token 남은 TTL (초)
        ======================= */
@@ -76,19 +81,25 @@ public class JwtTokenProvider {
         );
     }
 
+    // 운영용: logoutAt TTL 계산에 사용
+    public long getAccessTokenValiditySeconds() {
+        return DEFAULT_ACCESS_TOKEN_EXPIRE_MS / 1000;
+    }
+
     /* =======================
        JWT → Authentication 변환
        ======================= */
     public Authentication getAuthentication(String token) {
         Claims claims = parseClaims(token);
-
         String email = claims.getSubject();
 
         @SuppressWarnings("unchecked")
         List<String> roles = (List<String>) claims.get("roles");
 
-        List<GrantedAuthority> authorities = roles.stream()
-                .map(role -> (GrantedAuthority) new SimpleGrantedAuthority(role))
+        // hasRole("ADMIN") 매칭되도록 ROLE_ 보정
+        List<SimpleGrantedAuthority> authorities = roles.stream()
+                .map(r -> r.startsWith("ROLE_") ? r : "ROLE_" + r)
+                .map(SimpleGrantedAuthority::new)
                 .toList();
 
         User principal = new User(

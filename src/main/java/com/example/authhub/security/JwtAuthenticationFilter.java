@@ -31,37 +31,35 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         try {
             String token = resolveToken(request);
 
-            // 토큰 존재 + 구조적 유효성 검증
             if (token != null && jwtTokenProvider.validate(token)) {
 
-                // Access Token 블랙리스트 확인
+                // 1) 블랙리스트(jti) 체크
                 String jti = jwtTokenProvider.getJti(token);
-                boolean isBlacklisted =
-                        redisTokenService.isAccessTokenBlacklisted(jti);
+                if (redisTokenService.isAccessTokenBlacklisted(jti)) {
+                    filterChain.doFilter(request, response);
+                    return;
+                }
 
-                if (!isBlacklisted) {
-                    // 인증 객체 생성
-                    Authentication authentication =
-                            jwtTokenProvider.getAuthentication(token);
+                // 2) 강제 로그아웃(logoutAt) 체크
+                Long userId = jwtTokenProvider.getUserId(token);
+                if (userId != null) {
+                    long issuedAtMillis = jwtTokenProvider.getIssuedAtMillis(token);
+                    Long logoutAtMillis = redisTokenService.getLogoutAtMillis(userId);
 
-                    // SecurityContext에 인증 정보 저장
-                    SecurityContextHolder.getContext()
-                            .setAuthentication(authentication);
+                    boolean forceLoggedOut = (logoutAtMillis != null && issuedAtMillis <= logoutAtMillis);
+                    if (!forceLoggedOut) {
+                        Authentication authentication = jwtTokenProvider.getAuthentication(token);
+                        SecurityContextHolder.getContext().setAuthentication(authentication);
+                    }
                 }
             }
 
-            // 다음 필터 진행
             filterChain.doFilter(request, response);
-
         } finally {
-            // 요청 종료 시 SecurityContext 정리 (중요)
             SecurityContextHolder.clearContext();
         }
     }
 
-    /**
-     * Authorization Header에서 Bearer 토큰 추출
-     */
     private String resolveToken(HttpServletRequest request) {
         String bearer = request.getHeader("Authorization");
         if (bearer != null && bearer.startsWith("Bearer ")) {
