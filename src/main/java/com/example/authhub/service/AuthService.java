@@ -52,9 +52,10 @@ public class AuthService {
     }
 
     /* ==========================
-       로그인
+       로그인 (중복 로그인 방지)
     ========================== */
     public LoginResponse login(LoginRequest request) {
+
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new AuthException(ErrorCode.INVALID_CREDENTIALS));
 
@@ -64,6 +65,11 @@ public class AuthService {
 
         Client client = clientRepository.findByClientId(request.getClientId())
                 .orElseThrow(() -> new AuthException(ErrorCode.INVALID_CLIENT));
+
+        // 중복 로그인 체크
+        if (redisTokenService.isAlreadyLoggedIn(user.getId(), client.getClientId())) {
+            throw new AuthException(ErrorCode.ALREADY_LOGGED_IN);
+        }
 
         List<String> roles = List.of(user.getRole().name());
 
@@ -99,24 +105,35 @@ public class AuthService {
     }
 
     /* ==========================
-       토큰 재발급
+       토큰 재발급 (Rotation)
     ========================== */
     public LoginResponse refresh(RefreshTokenRequest request) {
-        if (!redisTokenService.validateRefreshToken(request.getRefreshToken(), request.getClientId())) {
+
+        // 1. Refresh Token 유효성 검증
+        if (!redisTokenService.validateRefreshToken(
+                request.getRefreshToken(),
+                request.getClientId())
+        ) {
             throw new AuthException(ErrorCode.INVALID_REFRESH_TOKEN);
         }
 
-        Long userId = redisTokenService.getUserIdFromRefreshToken(request.getRefreshToken());
+        // 2. Refresh Token → User ID 조회
+        Long userId = redisTokenService.getUserIdFromRefreshToken(
+                request.getRefreshToken()
+        );
+
         if (userId == null) {
             throw new AuthException(ErrorCode.INVALID_REFRESH_TOKEN);
         }
 
+        // 3. 사용자 / Client 조회
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new AuthException(ErrorCode.USER_NOT_FOUND));
 
         Client client = clientRepository.findByClientId(request.getClientId())
                 .orElseThrow(() -> new AuthException(ErrorCode.INVALID_CLIENT));
 
+        // 4. Access Token 재발급
         List<String> roles = List.of(user.getRole().name());
 
         String newAccessToken = jwtTokenProvider.createAccessToken(
@@ -125,10 +142,11 @@ public class AuthService {
                 roles
         );
 
-        // Refresh Token 회전
+        // 5. Refresh Token 회전 (기존 토큰 제거)
         redisTokenService.deleteRefreshToken(request.getRefreshToken());
 
         String newRefreshToken = UUID.randomUUID().toString();
+
         long refreshTtl = client.getRefreshTokenValidity() != null
                 ? client.getRefreshTokenValidity()
                 : 7 * 24 * 60 * 60;
@@ -156,17 +174,20 @@ public class AuthService {
        로그아웃
     ========================== */
     public void logout(String authorizationHeader) {
+
         if (authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")) {
             throw new AuthException(ErrorCode.UNAUTHORIZED);
         }
 
         String accessToken = authorizationHeader.replace("Bearer ", "");
 
+        // 1. Access Token 블랙리스트
         String jti = jwtTokenProvider.getJti(accessToken);
         long ttl = jwtTokenProvider.getRemainingValiditySeconds(accessToken);
         redisTokenService.blacklistAccessToken(jti, ttl);
 
+        // 2. 해당 유저의 모든 Refresh Token 제거
         Long userId = jwtTokenProvider.getUserId(accessToken);
-        redisTokenService.deleteRefreshTokenByUserId(userId);
+        redisTokenService.deleteAllSessionsByUser(userId);
     }
 }

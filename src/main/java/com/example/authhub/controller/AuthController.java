@@ -1,6 +1,7 @@
 package com.example.authhub.controller;
 
 import com.example.authhub.dto.auth.request.LoginRequest;
+import com.example.authhub.dto.auth.request.LogoutRequest;
 import com.example.authhub.dto.auth.request.RefreshTokenRequest;
 import com.example.authhub.dto.auth.request.SignupRequest;
 import com.example.authhub.dto.auth.response.ApiResponse;
