@@ -20,13 +20,8 @@ public class AuthController {
 
     private final AuthService authService;
 
-    /* =========================
-       회원가입
-       ========================= */
     @PostMapping("/signup")
-    public ResponseEntity<ApiResponse<Void>> signup(
-            @Valid @RequestBody SignupRequest request
-    ) {
+    public ResponseEntity<ApiResponse<Void>> signup(@Valid @RequestBody SignupRequest request) {
         authService.signup(request);
 
         return ResponseEntity.ok(
@@ -37,13 +32,8 @@ public class AuthController {
         );
     }
 
-    /* =========================
-       로그인
-       ========================= */
     @PostMapping("/login")
-    public ResponseEntity<ApiResponse<LoginResponse>> login(
-            @Valid @RequestBody LoginRequest request
-    ) {
+    public ResponseEntity<ApiResponse<LoginResponse>> login(@Valid @RequestBody LoginRequest request) {
         LoginResponse response = authService.login(request);
 
         return ResponseEntity.ok(
@@ -55,13 +45,8 @@ public class AuthController {
         );
     }
 
-    /* =========================
-       토큰 재발급
-       ========================= */
     @PostMapping("/refresh")
-    public ResponseEntity<ApiResponse<LoginResponse>> refresh(
-            @Valid @RequestBody RefreshTokenRequest request
-    ) {
+    public ResponseEntity<ApiResponse<LoginResponse>> refresh(@Valid @RequestBody RefreshTokenRequest request) {
         LoginResponse response = authService.refresh(request);
 
         return ResponseEntity.ok(
@@ -73,14 +58,31 @@ public class AuthController {
         );
     }
 
-    /* =========================
-       로그아웃
-       ========================= */
+    /**
+     * 로그아웃(기본): 현재 기기(clientId)만 로그아웃
+     */
     @PostMapping("/logout")
     public ResponseEntity<ApiResponse<Void>> logout(
             @RequestHeader("Authorization") String authorizationHeader
     ) {
         authService.logout(authorizationHeader);
+
+        return ResponseEntity.ok(
+                ApiResponse.success(
+                        SuccessCode.LOGOUT_SUCCESS.getCode(),
+                        SuccessCode.LOGOUT_SUCCESS.getMessage()
+                )
+        );
+    }
+
+    /**
+     * 로그아웃(전체): 모든 기기 로그아웃 [
+     */
+    @PostMapping("/logout-all")
+    public ResponseEntity<ApiResponse<Void>> logoutAll(
+            @RequestHeader("Authorization") String authorizationHeader
+    ) {
+        authService.logoutAll(authorizationHeader);
 
         return ResponseEntity.ok(
                 ApiResponse.success(

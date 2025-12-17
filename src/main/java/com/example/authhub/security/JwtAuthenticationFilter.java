@@ -33,25 +33,36 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             if (token != null && jwtTokenProvider.validate(token)) {
 
-                // 1) 블랙리스트(jti) 체크
                 String jti = jwtTokenProvider.getJti(token);
                 if (redisTokenService.isAccessTokenBlacklisted(jti)) {
                     filterChain.doFilter(request, response);
                     return;
                 }
 
-                // 2) 강제 로그아웃(logoutAt) 체크
                 Long userId = jwtTokenProvider.getUserId(token);
-                if (userId != null) {
-                    long issuedAtMillis = jwtTokenProvider.getIssuedAtMillis(token);
-                    Long logoutAtMillis = redisTokenService.getLogoutAtMillis(userId);
+                String clientId = jwtTokenProvider.getClientId(token);
+                long issuedAtMillis = jwtTokenProvider.getIssuedAtMillis(token);
 
-                    boolean forceLoggedOut = (logoutAtMillis != null && issuedAtMillis <= logoutAtMillis);
-                    if (!forceLoggedOut) {
-                        Authentication authentication = jwtTokenProvider.getAuthentication(token);
-                        SecurityContextHolder.getContext().setAuthentication(authentication);
+                // 전체 강제 로그아웃 체크
+                if (userId != null) {
+                    Long logoutAt = redisTokenService.getLogoutAtMillis(userId);
+                    if (logoutAt != null && issuedAtMillis <= logoutAt) {
+                        filterChain.doFilter(request, response);
+                        return;
                     }
                 }
+
+                // client별 강제 로그아웃 체크 (clientId가 토큰에 있을 때만)
+                if (userId != null && clientId != null) {
+                    Long logoutAtClient = redisTokenService.getClientLogoutAtMillis(userId, clientId);
+                    if (logoutAtClient != null && issuedAtMillis <= logoutAtClient) {
+                        filterChain.doFilter(request, response);
+                        return;
+                    }
+                }
+
+                Authentication authentication = jwtTokenProvider.getAuthentication(token);
+                SecurityContextHolder.getContext().setAuthentication(authentication);
             }
 
             filterChain.doFilter(request, response);

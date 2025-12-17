@@ -32,9 +32,6 @@ public class AuthService {
     private final JwtTokenProvider jwtTokenProvider;
     private final RedisTokenService redisTokenService;
 
-    /* ==========================
-       회원가입
-    ========================== */
     public void signup(SignupRequest request) {
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new AuthException(ErrorCode.EMAIL_ALREADY_EXISTS);
@@ -51,9 +48,6 @@ public class AuthService {
         userRepository.save(user);
     }
 
-    /* ==========================
-       로그인 (중복 로그인 방지)
-    ========================== */
     public LoginResponse login(LoginRequest request) {
 
         User user = userRepository.findByEmail(request.getEmail())
@@ -66,16 +60,16 @@ public class AuthService {
         Client client = clientRepository.findByClientId(request.getClientId())
                 .orElseThrow(() -> new AuthException(ErrorCode.INVALID_CLIENT));
 
-        // 중복 로그인 체크
         if (redisTokenService.isAlreadyLoggedIn(user.getId(), client.getClientId())) {
             throw new AuthException(ErrorCode.ALREADY_LOGGED_IN);
         }
 
         List<String> roles = List.of(user.getRole().name());
 
-        String accessToken = jwtTokenProvider.createAccessToken(
+        String accessToken = jwtTokenProvider.createAccessToken( 
                 user.getId(),
                 user.getEmail(),
+                client.getClientId(),
                 roles
         );
 
@@ -104,45 +98,32 @@ public class AuthService {
                 .build();
     }
 
-    /* ==========================
-       토큰 재발급 (Rotation)
-    ========================== */
     public LoginResponse refresh(RefreshTokenRequest request) {
 
-        // 1. Refresh Token 유효성 검증
-        if (!redisTokenService.validateRefreshToken(
-                request.getRefreshToken(),
-                request.getClientId())
-        ) {
+        if (!redisTokenService.validateRefreshToken(request.getRefreshToken(), request.getClientId())) {
             throw new AuthException(ErrorCode.INVALID_REFRESH_TOKEN);
         }
 
-        // 2. Refresh Token → User ID 조회
-        Long userId = redisTokenService.getUserIdFromRefreshToken(
-                request.getRefreshToken()
-        );
-
+        Long userId = redisTokenService.getUserIdFromRefreshToken(request.getRefreshToken());
         if (userId == null) {
             throw new AuthException(ErrorCode.INVALID_REFRESH_TOKEN);
         }
 
-        // 3. 사용자 / Client 조회
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new AuthException(ErrorCode.USER_NOT_FOUND));
 
         Client client = clientRepository.findByClientId(request.getClientId())
                 .orElseThrow(() -> new AuthException(ErrorCode.INVALID_CLIENT));
 
-        // 4. Access Token 재발급
         List<String> roles = List.of(user.getRole().name());
 
         String newAccessToken = jwtTokenProvider.createAccessToken(
                 user.getId(),
                 user.getEmail(),
+                client.getClientId(),
                 roles
         );
 
-        // 5. Refresh Token 회전 (기존 토큰 제거)
         redisTokenService.deleteRefreshToken(request.getRefreshToken());
 
         String newRefreshToken = UUID.randomUUID().toString();
@@ -170,24 +151,65 @@ public class AuthService {
                 .build();
     }
 
-    /* ==========================
-       로그아웃
-    ========================== */
+    /**
+     * 로그아웃(기본): 현재 기기(clientId)만 로그아웃
+     * - 현재 access token(jti) 블랙리스트
+     * - (userId, clientId)의 refresh 세션만 삭제
+     * - 해당 clientId에 logoutAt 설정하여 기존 access 토큰도 무효화
+     */
     public void logout(String authorizationHeader) {
 
-        if (authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")) {
-            throw new AuthException(ErrorCode.UNAUTHORIZED);
-        }
+        String accessToken = extractBearerToken(authorizationHeader);
 
-        String accessToken = authorizationHeader.replace("Bearer ", "");
-
-        // 1. Access Token 블랙리스트
         String jti = jwtTokenProvider.getJti(accessToken);
         long ttl = jwtTokenProvider.getRemainingValiditySeconds(accessToken);
         redisTokenService.blacklistAccessToken(jti, ttl);
 
-        // 2. 해당 유저의 모든 Refresh Token 제거
         Long userId = jwtTokenProvider.getUserId(accessToken);
-        redisTokenService.deleteAllSessionsByUser(userId);
+        String clientId = jwtTokenProvider.getClientId(accessToken);
+
+        if (userId == null || clientId == null) {
+            throw new AuthException(ErrorCode.UNAUTHORIZED);
+        }
+
+        redisTokenService.deleteSessionByUserAndClient(userId, clientId);
+
+        redisTokenService.forceLogoutClient(
+                userId,
+                clientId,
+                jwtTokenProvider.getAccessTokenValiditySeconds()
+        );
+    }
+
+    /**
+     * 로그아웃(전체): 모든 기기 로그아웃
+     * - 현재 access token(jti) 블랙리스트
+     * - userId의 모든 refresh 세션 삭제
+     * - userId 전체 logoutAt 설정하여 기존 access 토큰도 무효화
+     */
+    public void logoutAll(String authorizationHeader) {
+
+        String accessToken = extractBearerToken(authorizationHeader);
+
+        String jti = jwtTokenProvider.getJti(accessToken);
+        long ttl = jwtTokenProvider.getRemainingValiditySeconds(accessToken);
+        redisTokenService.blacklistAccessToken(jti, ttl);
+
+        Long userId = jwtTokenProvider.getUserId(accessToken);
+        if (userId == null) {
+            throw new AuthException(ErrorCode.UNAUTHORIZED);
+        }
+
+        redisTokenService.forceLogoutAll(
+                userId,
+                jwtTokenProvider.getAccessTokenValiditySeconds()
+        );
+    }
+
+    private String extractBearerToken(String authorizationHeader) {
+        if (authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")) {
+            throw new AuthException(ErrorCode.UNAUTHORIZED);
+        }
+        return authorizationHeader.substring(7);
     }
 }
