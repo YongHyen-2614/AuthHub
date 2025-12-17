@@ -60,15 +60,13 @@ public class AuthService {
         Client client = clientRepository.findByClientId(request.getClientId())
                 .orElseThrow(() -> new AuthException(ErrorCode.INVALID_CLIENT));
 
-        // 중복 로그인 체크
         if (redisTokenService.isAlreadyLoggedIn(user.getId(), client.getClientId())) {
             throw new AuthException(ErrorCode.ALREADY_LOGGED_IN);
         }
 
         List<String> roles = List.of(user.getRole().name());
 
-        // access token에 clientId 포함 (운영용)
-        String accessToken = jwtTokenProvider.createAccessToken(
+        String accessToken = jwtTokenProvider.createAccessToken( 
                 user.getId(),
                 user.getEmail(),
                 client.getClientId(),
@@ -119,7 +117,6 @@ public class AuthService {
 
         List<String> roles = List.of(user.getRole().name());
 
-        // 새 access token에도 clientId 포함
         String newAccessToken = jwtTokenProvider.createAccessToken(
                 user.getId(),
                 user.getEmail(),
@@ -127,7 +124,6 @@ public class AuthService {
                 roles
         );
 
-        // refresh rotation
         redisTokenService.deleteRefreshToken(request.getRefreshToken());
 
         String newRefreshToken = UUID.randomUUID().toString();
@@ -156,25 +152,64 @@ public class AuthService {
     }
 
     /**
-     * 로그아웃: 현재는 "전체 로그아웃" 정책 유지
-     * - access token 블랙리스트 + 해당 유저의 refresh 세션 전체 삭제
-     * (원하면 clientId 기반으로 특정 세션만 삭제로 바꿀 수 있음)
+     * 로그아웃(기본): 현재 기기(clientId)만 로그아웃
+     * - 현재 access token(jti) 블랙리스트
+     * - (userId, clientId)의 refresh 세션만 삭제
+     * - 해당 clientId에 logoutAt 설정하여 기존 access 토큰도 무효화
      */
     public void logout(String authorizationHeader) {
 
-        if (authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")) {
-            throw new AuthException(ErrorCode.UNAUTHORIZED);
-        }
-
-        String accessToken = authorizationHeader.replace("Bearer ", "");
+        String accessToken = extractBearerToken(authorizationHeader);
 
         String jti = jwtTokenProvider.getJti(accessToken);
         long ttl = jwtTokenProvider.getRemainingValiditySeconds(accessToken);
         redisTokenService.blacklistAccessToken(jti, ttl);
 
         Long userId = jwtTokenProvider.getUserId(accessToken);
-        if (userId != null) {
-            redisTokenService.deleteAllSessionsByUser(userId);
+        String clientId = jwtTokenProvider.getClientId(accessToken);
+
+        if (userId == null || clientId == null) {
+            throw new AuthException(ErrorCode.UNAUTHORIZED);
         }
+
+        redisTokenService.deleteSessionByUserAndClient(userId, clientId);
+
+        redisTokenService.forceLogoutClient(
+                userId,
+                clientId,
+                jwtTokenProvider.getAccessTokenValiditySeconds()
+        );
+    }
+
+    /**
+     * 로그아웃(전체): 모든 기기 로그아웃
+     * - 현재 access token(jti) 블랙리스트
+     * - userId의 모든 refresh 세션 삭제
+     * - userId 전체 logoutAt 설정하여 기존 access 토큰도 무효화
+     */
+    public void logoutAll(String authorizationHeader) {
+
+        String accessToken = extractBearerToken(authorizationHeader);
+
+        String jti = jwtTokenProvider.getJti(accessToken);
+        long ttl = jwtTokenProvider.getRemainingValiditySeconds(accessToken);
+        redisTokenService.blacklistAccessToken(jti, ttl);
+
+        Long userId = jwtTokenProvider.getUserId(accessToken);
+        if (userId == null) {
+            throw new AuthException(ErrorCode.UNAUTHORIZED);
+        }
+
+        redisTokenService.forceLogoutAll(
+                userId,
+                jwtTokenProvider.getAccessTokenValiditySeconds()
+        );
+    }
+
+    private String extractBearerToken(String authorizationHeader) {
+        if (authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")) {
+            throw new AuthException(ErrorCode.UNAUTHORIZED);
+        }
+        return authorizationHeader.substring(7);
     }
 }
