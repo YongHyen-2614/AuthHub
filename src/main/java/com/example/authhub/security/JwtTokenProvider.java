@@ -2,12 +2,14 @@ package com.example.authhub.security;
 
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.stereotype.Component;
 
+import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.util.Date;
 import java.util.List;
@@ -16,15 +18,17 @@ import java.util.UUID;
 @Component
 public class JwtTokenProvider {
 
-    private final Key key = Keys.hmacShaKeyFor(
-            "very-secret-key-very-secret-key-very-secret-key".getBytes()
-    );
+    private final Key key;
+    private final long accessTokenExpireMs;
 
-    private static final long DEFAULT_ACCESS_TOKEN_EXPIRE_MS = 30 * 60 * 1000; // 30분
+    public JwtTokenProvider(
+            @Value("${jwt.secret}") String secret,
+            @Value("${jwt.access-token-validity-seconds}") long accessTokenValiditySeconds
+    ) {
+        this.key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
+        this.accessTokenExpireMs = accessTokenValiditySeconds * 1000L;
+    }
 
-    /* =======================
-       토큰 검증
-       ======================= */
     public boolean validate(String token) {
         try {
             parseClaims(token);
@@ -34,17 +38,16 @@ public class JwtTokenProvider {
         }
     }
 
-    /* =======================
-       Access Token 생성
-       ======================= */
-    public String createAccessToken(Long userId, String email, List<String> roles) {
+    // clientId 포함
+    public String createAccessToken(Long userId, String email, String clientId, List<String> roles) {
         long now = System.currentTimeMillis();
-        long expiry = now + DEFAULT_ACCESS_TOKEN_EXPIRE_MS;
+        long expiry = now + accessTokenExpireMs;
 
         return Jwts.builder()
-                .setId(UUID.randomUUID().toString()) // jti
+                .setId(UUID.randomUUID().toString())
                 .setSubject(email)
                 .claim("userId", userId)
+                .claim("clientId", clientId)
                 .claim("roles", roles)
                 .setIssuedAt(new Date(now))
                 .setExpiration(new Date(expiry))
@@ -52,9 +55,6 @@ public class JwtTokenProvider {
                 .compact();
     }
 
-    /* =======================
-       Claim 추출
-       ======================= */
     public String getJti(String token) {
         return parseClaims(token).getId();
     }
@@ -64,31 +64,26 @@ public class JwtTokenProvider {
         return userId == null ? null : Long.valueOf(userId.toString());
     }
 
-    // 강제 로그아웃(logoutAt) 비교용 iat(ms)
+    // clientId getter
+    public String getClientId(String token) {
+        Object v = parseClaims(token).get("clientId");
+        return v == null ? null : v.toString();
+    }
+
     public long getIssuedAtMillis(String token) {
         Date issuedAt = parseClaims(token).getIssuedAt();
         return issuedAt == null ? 0L : issuedAt.getTime();
     }
 
-    /* =======================
-       Access Token 남은 TTL (초)
-       ======================= */
     public long getRemainingValiditySeconds(String token) {
         Date expiration = parseClaims(token).getExpiration();
-        return Math.max(
-                (expiration.getTime() - System.currentTimeMillis()) / 1000,
-                0
-        );
+        return Math.max((expiration.getTime() - System.currentTimeMillis()) / 1000, 0);
     }
 
-    // 운영용: logoutAt TTL 계산에 사용
     public long getAccessTokenValiditySeconds() {
-        return DEFAULT_ACCESS_TOKEN_EXPIRE_MS / 1000;
+        return accessTokenExpireMs / 1000L;
     }
 
-    /* =======================
-       JWT → Authentication 변환
-       ======================= */
     public Authentication getAuthentication(String token) {
         Claims claims = parseClaims(token);
         String email = claims.getSubject();
@@ -96,28 +91,15 @@ public class JwtTokenProvider {
         @SuppressWarnings("unchecked")
         List<String> roles = (List<String>) claims.get("roles");
 
-        // hasRole("ADMIN") 매칭되도록 ROLE_ 보정
         List<SimpleGrantedAuthority> authorities = roles.stream()
                 .map(r -> r.startsWith("ROLE_") ? r : "ROLE_" + r)
                 .map(SimpleGrantedAuthority::new)
                 .toList();
 
-        User principal = new User(
-                email,
-                "",          // 비밀번호 불필요 (이미 JWT로 인증됨)
-                authorities
-        );
-
-        return new UsernamePasswordAuthenticationToken(
-                principal,
-                token,
-                authorities
-        );
+        User principal = new User(email, "", authorities);
+        return new UsernamePasswordAuthenticationToken(principal, token, authorities);
     }
 
-    /* =======================
-       내부 유틸
-       ======================= */
     private Claims parseClaims(String token) {
         return Jwts.parserBuilder()
                 .setSigningKey(key)

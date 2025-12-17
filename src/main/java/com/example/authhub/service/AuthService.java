@@ -32,9 +32,6 @@ public class AuthService {
     private final JwtTokenProvider jwtTokenProvider;
     private final RedisTokenService redisTokenService;
 
-    /* ==========================
-       회원가입
-    ========================== */
     public void signup(SignupRequest request) {
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new AuthException(ErrorCode.EMAIL_ALREADY_EXISTS);
@@ -51,9 +48,6 @@ public class AuthService {
         userRepository.save(user);
     }
 
-    /* ==========================
-       로그인 (중복 로그인 방지)
-    ========================== */
     public LoginResponse login(LoginRequest request) {
 
         User user = userRepository.findByEmail(request.getEmail())
@@ -73,9 +67,11 @@ public class AuthService {
 
         List<String> roles = List.of(user.getRole().name());
 
+        // access token에 clientId 포함 (운영용)
         String accessToken = jwtTokenProvider.createAccessToken(
                 user.getId(),
                 user.getEmail(),
+                client.getClientId(),
                 roles
         );
 
@@ -104,45 +100,34 @@ public class AuthService {
                 .build();
     }
 
-    /* ==========================
-       토큰 재발급 (Rotation)
-    ========================== */
     public LoginResponse refresh(RefreshTokenRequest request) {
 
-        // 1. Refresh Token 유효성 검증
-        if (!redisTokenService.validateRefreshToken(
-                request.getRefreshToken(),
-                request.getClientId())
-        ) {
+        if (!redisTokenService.validateRefreshToken(request.getRefreshToken(), request.getClientId())) {
             throw new AuthException(ErrorCode.INVALID_REFRESH_TOKEN);
         }
 
-        // 2. Refresh Token → User ID 조회
-        Long userId = redisTokenService.getUserIdFromRefreshToken(
-                request.getRefreshToken()
-        );
-
+        Long userId = redisTokenService.getUserIdFromRefreshToken(request.getRefreshToken());
         if (userId == null) {
             throw new AuthException(ErrorCode.INVALID_REFRESH_TOKEN);
         }
 
-        // 3. 사용자 / Client 조회
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new AuthException(ErrorCode.USER_NOT_FOUND));
 
         Client client = clientRepository.findByClientId(request.getClientId())
                 .orElseThrow(() -> new AuthException(ErrorCode.INVALID_CLIENT));
 
-        // 4. Access Token 재발급
         List<String> roles = List.of(user.getRole().name());
 
+        // 새 access token에도 clientId 포함
         String newAccessToken = jwtTokenProvider.createAccessToken(
                 user.getId(),
                 user.getEmail(),
+                client.getClientId(),
                 roles
         );
 
-        // 5. Refresh Token 회전 (기존 토큰 제거)
+        // refresh rotation
         redisTokenService.deleteRefreshToken(request.getRefreshToken());
 
         String newRefreshToken = UUID.randomUUID().toString();
@@ -170,9 +155,11 @@ public class AuthService {
                 .build();
     }
 
-    /* ==========================
-       로그아웃
-    ========================== */
+    /**
+     * 로그아웃: 현재는 "전체 로그아웃" 정책 유지
+     * - access token 블랙리스트 + 해당 유저의 refresh 세션 전체 삭제
+     * (원하면 clientId 기반으로 특정 세션만 삭제로 바꿀 수 있음)
+     */
     public void logout(String authorizationHeader) {
 
         if (authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")) {
@@ -181,13 +168,13 @@ public class AuthService {
 
         String accessToken = authorizationHeader.replace("Bearer ", "");
 
-        // 1. Access Token 블랙리스트
         String jti = jwtTokenProvider.getJti(accessToken);
         long ttl = jwtTokenProvider.getRemainingValiditySeconds(accessToken);
         redisTokenService.blacklistAccessToken(jti, ttl);
 
-        // 2. 해당 유저의 모든 Refresh Token 제거
         Long userId = jwtTokenProvider.getUserId(accessToken);
-        redisTokenService.deleteAllSessionsByUser(userId);
+        if (userId != null) {
+            redisTokenService.deleteAllSessionsByUser(userId);
+        }
     }
 }
