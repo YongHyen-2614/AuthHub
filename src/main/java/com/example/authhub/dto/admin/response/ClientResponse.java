@@ -15,12 +15,15 @@ public class ClientResponse {
     private String allowedScopes;
 
     public static ClientResponse from(Client c) {
+        Long access = (c.getAccessTokenValidity() == null) ? null : c.getAccessTokenValidity().longValue();
+        Long refresh = (c.getRefreshTokenValidity() == null) ? null : c.getRefreshTokenValidity().longValue();
+
         return ClientResponse.builder()
                 .clientId(c.getClientId())
                 .name(c.getName())
                 .redirectUri(c.getRedirectUri())
-                .accessTokenValidity(c.getAccessTokenValidity())
-                .refreshTokenValidity(c.getRefreshTokenValidity())
+                .accessTokenValidity(access)
+                .refreshTokenValidity(refresh)
                 .allowedScopes(c.getAllowedScopes())
                 .build();
     }
