@@ -1,6 +1,7 @@
-package com.example.authhub.service;
+package com.example.authhub.service.auth;
 
 import com.example.authhub.domain.client.Client;
+import com.example.authhub.domain.login.LoginHistory;
 import com.example.authhub.domain.user.AuthProvider;
 import com.example.authhub.domain.user.Role;
 import com.example.authhub.domain.user.User;
@@ -11,8 +12,10 @@ import com.example.authhub.dto.auth.response.LoginResponse;
 import com.example.authhub.exception.AuthException;
 import com.example.authhub.exception.ErrorCode;
 import com.example.authhub.repository.ClientRepository;
+import com.example.authhub.repository.LoginHistoryRepository;
 import com.example.authhub.repository.UserRepository;
 import com.example.authhub.security.JwtTokenProvider;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -32,6 +35,8 @@ public class AuthService {
     private final JwtTokenProvider jwtTokenProvider;
     private final RedisTokenService redisTokenService;
 
+    private final LoginHistoryRepository loginHistoryRepository;
+
     public void signup(SignupRequest request) {
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new AuthException(ErrorCode.EMAIL_ALREADY_EXISTS);
@@ -48,54 +53,87 @@ public class AuthService {
         userRepository.save(user);
     }
 
+    /**
+     * 로그인(로그인 이력 저장 포함)
+     * - 성공 시: success=true 기록
+     * - 실패 시: success=false + reason 기록 후 예외 발생
+     */
+    public LoginResponse login(LoginRequest request, HttpServletRequest httpRequest) {
+
+        String email = request.getEmail();
+        String clientId = request.getClientId();
+        String ip = extractClientIp(httpRequest);
+        String userAgent = httpRequest.getHeader("User-Agent");
+
+        try {
+            User user = userRepository.findByEmail(email)
+                    .orElseThrow(() -> {
+                        saveLoginFail(email, clientId, ip, userAgent, "INVALID_CREDENTIALS");
+                        return new AuthException(ErrorCode.INVALID_CREDENTIALS);
+                    });
+
+            if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+                saveLoginFail(email, clientId, ip, userAgent, "INVALID_CREDENTIALS");
+                throw new AuthException(ErrorCode.INVALID_CREDENTIALS);
+            }
+
+            Client client = clientRepository.findByClientId(clientId)
+                    .orElseThrow(() -> {
+                        saveLoginFail(email, clientId, ip, userAgent, "INVALID_CLIENT");
+                        return new AuthException(ErrorCode.INVALID_CLIENT);
+                    });
+
+            if (redisTokenService.isAlreadyLoggedIn(user.getId(), client.getClientId())) {
+                saveLoginFail(email, clientId, ip, userAgent, "ALREADY_LOGGED_IN");
+                throw new AuthException(ErrorCode.ALREADY_LOGGED_IN);
+            }
+
+            List<String> roles = List.of(user.getRole().name());
+
+            String accessToken = jwtTokenProvider.createAccessToken(
+                    user.getId(),
+                    user.getEmail(),
+                    client.getClientId(),
+                    roles
+            );
+
+            String refreshToken = UUID.randomUUID().toString();
+
+            long refreshTtl = client.getRefreshTokenValidity() != null
+                    ? client.getRefreshTokenValidity()
+                    : 7 * 24 * 60 * 60;
+
+            redisTokenService.storeRefreshToken(
+                    refreshToken,
+                    user.getId(),
+                    client.getClientId(),
+                    refreshTtl
+            );
+
+            long accessTtl = client.getAccessTokenValidity() != null
+                    ? client.getAccessTokenValidity()
+                    : jwtTokenProvider.getRemainingValiditySeconds(accessToken);
+
+            saveLoginSuccess(user.getId(), email, clientId, ip, userAgent);
+
+            return LoginResponse.builder()
+                    .accessToken(accessToken)
+                    .refreshToken(refreshToken)
+                    .tokenType("Bearer")
+                    .expiresIn(accessTtl)
+                    .build();
+
+        } catch (AuthException e) {
+            throw e;
+        }
+    }
+
+    /**
+     * 기존 시그니처를 호출하는 코드가 남아있을 수 있어 보조로 유지하고 싶다면 사용
+     * - Controller를 모두 수정했다면 이 메서드는 삭제해도 됨
+     */
     public LoginResponse login(LoginRequest request) {
-
-        User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new AuthException(ErrorCode.INVALID_CREDENTIALS));
-
-        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
-            throw new AuthException(ErrorCode.INVALID_CREDENTIALS);
-        }
-
-        Client client = clientRepository.findByClientId(request.getClientId())
-                .orElseThrow(() -> new AuthException(ErrorCode.INVALID_CLIENT));
-
-        if (redisTokenService.isAlreadyLoggedIn(user.getId(), client.getClientId())) {
-            throw new AuthException(ErrorCode.ALREADY_LOGGED_IN);
-        }
-
-        List<String> roles = List.of(user.getRole().name());
-
-        String accessToken = jwtTokenProvider.createAccessToken( 
-                user.getId(),
-                user.getEmail(),
-                client.getClientId(),
-                roles
-        );
-
-        String refreshToken = UUID.randomUUID().toString();
-
-        long refreshTtl = client.getRefreshTokenValidity() != null
-                ? client.getRefreshTokenValidity()
-                : 7 * 24 * 60 * 60;
-
-        redisTokenService.storeRefreshToken(
-                refreshToken,
-                user.getId(),
-                client.getClientId(),
-                refreshTtl
-        );
-
-        long accessTtl = client.getAccessTokenValidity() != null
-                ? client.getAccessTokenValidity()
-                : jwtTokenProvider.getRemainingValiditySeconds(accessToken);
-
-        return LoginResponse.builder()
-                .accessToken(accessToken)
-                .refreshToken(refreshToken)
-                .tokenType("Bearer")
-                .expiresIn(accessTtl)
-                .build();
+        throw new UnsupportedOperationException("Use login(LoginRequest, HttpServletRequest)");
     }
 
     public LoginResponse refresh(RefreshTokenRequest request) {
@@ -211,5 +249,29 @@ public class AuthService {
             throw new AuthException(ErrorCode.UNAUTHORIZED);
         }
         return authorizationHeader.substring(7);
+    }
+
+    // ===== 로그인 이력 저장 유틸 =====
+
+    private void saveLoginSuccess(Long userId, String email, String clientId, String ip, String userAgent) {
+        try {
+            loginHistoryRepository.save(LoginHistory.success(userId, email, clientId, ip, userAgent));
+        } catch (Exception ignore) {
+        }
+    }
+
+    private void saveLoginFail(String email, String clientId, String ip, String userAgent, String reason) {
+        try {
+            loginHistoryRepository.save(LoginHistory.fail(email, clientId, ip, userAgent, reason));
+        } catch (Exception ignore) {
+        }
+    }
+
+    private String extractClientIp(HttpServletRequest request) {
+        String xff = request.getHeader("X-Forwarded-For");
+        if (xff != null && !xff.isBlank()) {
+            return xff.split(",")[0].trim();
+        }
+        return request.getRemoteAddr();
     }
 }

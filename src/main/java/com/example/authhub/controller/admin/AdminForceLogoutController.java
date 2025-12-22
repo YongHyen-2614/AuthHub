@@ -1,7 +1,7 @@
-package com.example.authhub.controller;
+package com.example.authhub.controller.admin;
 
 import com.example.authhub.security.JwtTokenProvider;
-import com.example.authhub.service.RedisTokenService;
+import com.example.authhub.service.auth.RedisTokenService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;

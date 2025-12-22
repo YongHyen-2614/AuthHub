@@ -1,12 +1,11 @@
-package com.example.authhub.controller;
+package com.example.authhub.controller.auth;
 
 import com.example.authhub.dto.auth.request.LoginRequest;
-import com.example.authhub.dto.auth.request.LogoutRequest;
 import com.example.authhub.dto.auth.request.RefreshTokenRequest;
 import com.example.authhub.dto.auth.request.SignupRequest;
 import com.example.authhub.dto.auth.response.ApiResponse;
 import com.example.authhub.dto.auth.response.LoginResponse;
-import com.example.authhub.service.AuthService;
+import com.example.authhub.service.auth.AuthService;
 import com.example.authhub.success.SuccessCode;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -33,8 +32,11 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<ApiResponse<LoginResponse>> login(@Valid @RequestBody LoginRequest request) {
-        LoginResponse response = authService.login(request);
+    public ResponseEntity<ApiResponse<LoginResponse>> login(
+            @Valid @RequestBody LoginRequest request,
+            jakarta.servlet.http.HttpServletRequest httpServletRequest
+    ) {
+        LoginResponse response = authService.login(request, httpServletRequest);
 
         return ResponseEntity.ok(
                 ApiResponse.success(
