@@ -126,43 +126,7 @@ GlobalExceptionHandler를 통한 예외 일괄 처리
 
 📬 5. API 명세 (현재 구현됨)
 ----------------------------
-👤 5.1 회원가입
----------------
-POST /auth/signup
-
-{
-  "email": "user@test.com",
-  "password": "password123"
-}
-
-🔐 5.2 로그인
---------------
-POST /auth/login
-
-{
-  "email": "user@test.com",
-  "password": "password123",
-  "clientId": "web-client"
-}
-
-🔄 5.3 토큰 재발급
--------------------
-
-POST /auth/refresh
-
-{
-  "refreshToken": "uuid-refresh-token",
-  "clientId": "web-client"
-}
-
-🚪 5.4 로그아웃
-----------------
-
-POST /auth/logout
-
-Header
-
-Authorization: Bearer {accessToken}
+https://www.notion.so/API-2d1d46c5c16180509143eae38da09a07?source=copy_link
 
 🗂 6. 데이터 설계 (현재 사용 중)
 -------------------------------
