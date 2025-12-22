@@ -1,6 +1,6 @@
 package com.example.authhub.security;
 
-import com.example.authhub.service.RedisTokenService;
+import com.example.authhub.service.auth.RedisTokenService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;

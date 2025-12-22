@@ -24,7 +24,9 @@
   </component>
   <component name="DBNavigator.Project.DatabaseConsoleManager">
     <connection id="e9437979-ae7e-45a7-9f07-b0a7e4800ac2">
-      <console name="Connection" type="STANDARD" schema="authhub" session="Main"><![CDATA[COMMIT;]]></console>
+      <console name="Connection" type="STANDARD" schema="authhub" session="Main"><![CDATA[UPDATE user
+SET role = 'ADMIN'
+WHERE email = 'u@example.com';]]></console>
     </connection>
   </component>
   <component name="DBNavigator.Project.DatabaseEditorStateManager">
@@ -35,6 +37,12 @@
   </component>
   <component name="DBNavigator.Project.DatabaseSessionManager">
     <connection id="e9437979-ae7e-45a7-9f07-b0a7e4800ac2" />
+  </component>
+  <component name="DBNavigator.Project.DatasetFilterManager">
+    <filter-actions connection-id="e9437979-ae7e-45a7-9f07-b0a7e4800ac2" dataset="authhub.clients" active-filter-id="" />
+    <filter-actions connection-id="e9437979-ae7e-45a7-9f07-b0a7e4800ac2" dataset="authhub.client" active-filter-id="" />
+    <filter-actions connection-id="e9437979-ae7e-45a7-9f07-b0a7e4800ac2" dataset="authhub.user" active-filter-id="" />
+    <filter-actions connection-id="e9437979-ae7e-45a7-9f07-b0a7e4800ac2" dataset="authhub.users" active-filter-id="" />
   </component>
   <component name="DBNavigator.Project.ExecutionManager">
     <retain-sticky-names value="false" />

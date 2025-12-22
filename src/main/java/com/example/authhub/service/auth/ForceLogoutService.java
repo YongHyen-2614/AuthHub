@@ -1,4 +1,4 @@
-package com.example.authhub.service;
+package com.example.authhub.service.auth;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
