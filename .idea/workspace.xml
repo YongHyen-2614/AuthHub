@@ -4,25 +4,11 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="f2fa592e-96c2-4eb6-8c29-1a996075e73a" name="Changes" comment="fix: 전체 로그아웃 추가">
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/example/authhub/controller/admin/AdminLoginHistoryController.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/example/authhub/domain/login/LoginHistory.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/example/authhub/dto/admin/request/ClientCreateRequest.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/example/authhub/dto/admin/request/ClientUpdateRequest.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/example/authhub/dto/admin/response/ClientResponse.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/example/authhub/dto/admin/response/LoginHistoryResponse.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/example/authhub/repository/LoginHistoryRepository.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/example/authhub/service/admin/AdminClientService.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/main/java/com/example/authhub/service/admin/AdminLoginHistoryService.java" afterDir="false" />
+    <list default="true" id="f2fa592e-96c2-4eb6-8c29-1a996075e73a" name="Changes" comment="fix: 단위 통일">
       <change afterPath="$PROJECT_DIR$/src/main/resources/application-test.yml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/dbnavigator.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/dbnavigator.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/example/authhub/controller/AdminForceLogoutController.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/example/authhub/controller/admin/AdminForceLogoutController.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/example/authhub/controller/AuthController.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/example/authhub/controller/auth/AuthController.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/example/authhub/security/JwtAuthenticationFilter.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/example/authhub/security/JwtAuthenticationFilter.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/example/authhub/service/AuthService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/example/authhub/service/auth/AuthService.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/example/authhub/service/ForceLogoutService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/example/authhub/service/auth/ForceLogoutService.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/example/authhub/service/RedisTokenService.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/example/authhub/service/auth/RedisTokenService.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/example/authhub/exception/ErrorCode.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/example/authhub/exception/ErrorCode.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/example/authhub/success/SuccessCode.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/example/authhub/success/SuccessCode.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -202,7 +188,23 @@
       <option name="project" value="LOCAL" />
       <updated>1766004355010</updated>
     </task>
-    <option name="localTasksCounter" value="8" />
+    <task id="LOCAL-00008" summary="add: 로그인 이력 저장">
+      <option name="closed" value="true" />
+      <created>1766384824736</created>
+      <option name="number" value="00008" />
+      <option name="presentableId" value="LOCAL-00008" />
+      <option name="project" value="LOCAL" />
+      <updated>1766384824736</updated>
+    </task>
+    <task id="LOCAL-00009" summary="fix: 단위 통일">
+      <option name="closed" value="true" />
+      <created>1766385296178</created>
+      <option name="number" value="00009" />
+      <option name="presentableId" value="LOCAL-00009" />
+      <option name="project" value="LOCAL" />
+      <updated>1766385296178</updated>
+    </task>
+    <option name="localTasksCounter" value="10" />
     <servers />
   </component>
   <component name="UnknownFeatures">
@@ -225,6 +227,8 @@
     <MESSAGE value="add: 강제 로그아웃 추가" />
     <MESSAGE value="add:강제 로그아웃 상태를 Redis에 저장하고(전체/기기별)&#10;    운영에서 전체/기기별 강제 로그아웃이 가능한 구조" />
     <MESSAGE value="fix: 전체 로그아웃 추가" />
-    <option name="LAST_COMMIT_MESSAGE" value="fix: 전체 로그아웃 추가" />
+    <MESSAGE value="add: 로그인 이력 저장" />
+    <MESSAGE value="fix: 단위 통일" />
+    <option name="LAST_COMMIT_MESSAGE" value="fix: 단위 통일" />
   </component>
 </project>

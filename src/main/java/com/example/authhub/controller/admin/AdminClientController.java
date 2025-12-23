@@ -5,6 +5,7 @@ import com.example.authhub.dto.admin.request.ClientUpdateRequest;
 import com.example.authhub.dto.admin.response.ClientResponse;
 import com.example.authhub.dto.auth.response.ApiResponse;
 import com.example.authhub.service.admin.AdminClientService;
+import com.example.authhub.success.SuccessCode;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -22,23 +23,46 @@ public class AdminClientController {
 
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ApiResponse<ClientResponse>> create(@Valid @RequestBody ClientCreateRequest req) {
-        return ResponseEntity.ok(ApiResponse.success("CLIENT_CREATE_SUCCESS", "Client 생성 성공",
-                adminClientService.create(req)));
+    public ResponseEntity<ApiResponse<ClientResponse>> create(
+            @Valid @RequestBody ClientCreateRequest req
+    ) {
+        ClientResponse created = adminClientService.create(req);
+
+        return ResponseEntity.ok(
+                ApiResponse.success(
+                        SuccessCode.CLIENT_CREATE_SUCCESS.getCode(),
+                        SuccessCode.CLIENT_CREATE_SUCCESS.getMessage(),
+                        created
+                )
+        );
     }
 
     @GetMapping
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<Page<ClientResponse>>> list(Pageable pageable) {
-        return ResponseEntity.ok(ApiResponse.success("CLIENT_LIST_SUCCESS", "Client 목록 조회 성공",
-                adminClientService.list(pageable)));
+        Page<ClientResponse> result = adminClientService.list(pageable);
+
+        return ResponseEntity.ok(
+                ApiResponse.success(
+                        SuccessCode.CLIENT_LIST_SUCCESS.getCode(),
+                        SuccessCode.CLIENT_LIST_SUCCESS.getMessage(),
+                        result
+                )
+        );
     }
 
     @GetMapping("/{clientId}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<ClientResponse>> get(@PathVariable String clientId) {
-        return ResponseEntity.ok(ApiResponse.success("CLIENT_GET_SUCCESS", "Client 조회 성공",
-                adminClientService.get(clientId)));
+        ClientResponse result = adminClientService.get(clientId);
+
+        return ResponseEntity.ok(
+                ApiResponse.success(
+                        SuccessCode.CLIENT_GET_SUCCESS.getCode(),
+                        SuccessCode.CLIENT_GET_SUCCESS.getMessage(),
+                        result
+                )
+        );
     }
 
     @PutMapping("/{clientId}")
@@ -47,14 +71,27 @@ public class AdminClientController {
             @PathVariable String clientId,
             @Valid @RequestBody ClientUpdateRequest req
     ) {
-        return ResponseEntity.ok(ApiResponse.success("CLIENT_UPDATE_SUCCESS", "Client 수정 성공",
-                adminClientService.update(clientId, req)));
+        ClientResponse updated = adminClientService.update(clientId, req);
+
+        return ResponseEntity.ok(
+                ApiResponse.success(
+                        SuccessCode.CLIENT_UPDATE_SUCCESS.getCode(),
+                        SuccessCode.CLIENT_UPDATE_SUCCESS.getMessage(),
+                        updated
+                )
+        );
     }
 
     @DeleteMapping("/{clientId}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable String clientId) {
         adminClientService.delete(clientId);
-        return ResponseEntity.ok(ApiResponse.success("CLIENT_DELETE_SUCCESS", "Client 삭제 성공"));
+
+        return ResponseEntity.ok(
+                ApiResponse.success(
+                        SuccessCode.CLIENT_DELETE_SUCCESS.getCode(),
+                        SuccessCode.CLIENT_DELETE_SUCCESS.getMessage()
+                )
+        );
     }
 }
