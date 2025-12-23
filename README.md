@@ -31,41 +31,8 @@ OAuth2 Authorization Code Flow 확장 가능 구조
 
 Role 기반 권한 제어(Admin)
 
-🏗 4. 전체 아키텍처
+🏗 4. 전체 아키텍처(추후 추가 예정)
 -------------------
-[ Client Apps ]
-
-└── Web / Mobile / Other Services
-
-  |
- 
-  v
-  
-[ AuthHub API Server ]
-  
-  |
-
-  ├── 🗄 MySQL (영구 데이터)
-  
-  │  ├─ users
-  
-  │  ├─ clients
-  
-  │  └─ login_histories
-  
-  |
-  
-  └── ⚡ Redis (토큰/세션 관리)
-  
-    ├─ refresh:{refreshToken} → "{userId}:{clientId}"
-    
-    ├─ user_client:{userId}:{clientId} → "{refreshToken}"
-    
-    ├─ blacklist:access:{jti} → "true"
-    
-    ├─ logout_at:{userId} → epochMillis
-    
-    └─ logout_at:{userId}:{clientId} → epochMillis
 
 🛠 5. 기술 스택
 ---------------
