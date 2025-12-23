@@ -34,22 +34,38 @@ Role 기반 권한 제어(Admin)
 🏗 4. 전체 아키텍처
 -------------------
 [ Client Apps ]
+
 └── Web / Mobile / Other Services
-  |
-  v
+
+  |
+ 
+  v
+  
 [ AuthHub API Server ]
-  |
-  ├── 🗄 MySQL (영구 데이터)
-  │  ├─ users
-  │  ├─ clients
-  │  └─ login_histories
-  |
-  └── ⚡ Redis (토큰/세션 관리)
-    ├─ refresh:{refreshToken} → "{userId}:{clientId}"
-    ├─ user_client:{userId}:{clientId} → "{refreshToken}"
-    ├─ blacklist:access:{jti} → "true"
-    ├─ logout_at:{userId} → epochMillis
-    └─ logout_at:{userId}:{clientId} → epochMillis
+  
+  |
+
+  ├── 🗄 MySQL (영구 데이터)
+  
+  │  ├─ users
+  
+  │  ├─ clients
+  
+  │  └─ login_histories
+  
+  |
+  
+  └── ⚡ Redis (토큰/세션 관리)
+  
+    ├─ refresh:{refreshToken} → "{userId}:{clientId}"
+    
+    ├─ user_client:{userId}:{clientId} → "{refreshToken}"
+    
+    ├─ blacklist:access:{jti} → "true"
+    
+    ├─ logout_at:{userId} → epochMillis
+    
+    └─ logout_at:{userId}:{clientId} → epochMillis
 
 🛠 5. 기술 스택
 ---------------
@@ -70,8 +86,9 @@ Redis
 JWT (jjwt)
 
 ✅ 6. 현재까지 구현된 기능 (Implemented)
+----------------------------------------
 🔐 6.1 인증 기능 (Auth)
-
+-----------------------
 회원가입
 
 이메일 + 비밀번호 로그인
@@ -157,7 +174,7 @@ Client 등록 / 수정 / 삭제 / 조회(Page)
 📬 7. API 명세 (현재 구현됨)
 ----------------------------
 Auth API(/auth)
-
+--------------
 POST /auth/signup
 
 POST /auth/login
@@ -171,7 +188,7 @@ POST /auth/logout-all (전체 기기 로그아웃)
 GET /auth/me
 
 Admin API(/admin)
-
+-----------------
 POST /admin/clients
 
 GET /admin/clients
