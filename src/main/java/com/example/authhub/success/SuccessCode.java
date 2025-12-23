@@ -17,7 +17,8 @@ public enum SuccessCode {
     CLIENT_UPDATE_SUCCESS("S008", "Client 수정에 성공했습니다."),
     CLIENT_DELETE_SUCCESS("S009", "Client 삭제에 성공했습니다."),
     LOGIN_HISTORY_LIST_SUCCESS("S010", "로그인 이력 조회에 성공했습니다."),
-    FORCE_LOGOUT_SUCCESS("S011", "강제 로그아웃에 성공했습니다.");
+    FORCE_LOGOUT_SUCCESS("S011", "강제 로그아웃에 성공했습니다."),
+    ME_SUCCESS("S012", "내 정보 조회에 성공했습니다.");
 
     private final String code;
     private final String message;
