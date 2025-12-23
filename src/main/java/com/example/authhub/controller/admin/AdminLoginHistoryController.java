@@ -3,6 +3,7 @@ package com.example.authhub.controller.admin;
 import com.example.authhub.dto.admin.response.LoginHistoryResponse;
 import com.example.authhub.dto.auth.response.ApiResponse;
 import com.example.authhub.service.admin.AdminLoginHistoryService;
+import com.example.authhub.success.SuccessCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -20,6 +21,14 @@ public class AdminLoginHistoryController {
 
     private final AdminLoginHistoryService adminLoginHistoryService;
 
+    /**
+     * 로그인 이력 조회 (검색 + 페이징)
+     *
+     * [권한] ADMIN 필요 (hasRole('ADMIN'))
+     * [요청] Query: email, userId, clientId, success, from, to + Pageable
+     * [응답] ApiResponse<Page<LoginHistoryResponse>>
+     * - SuccessCode: ADMIN_LOGIN_HISTORY_LIST_SUCCESS
+     */
     @GetMapping
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<Page<LoginHistoryResponse>>> list(
@@ -36,6 +45,12 @@ public class AdminLoginHistoryController {
         Page<LoginHistoryResponse> result =
                 adminLoginHistoryService.search(email, userId, clientId, success, from, to, pageable);
 
-        return ResponseEntity.ok(ApiResponse.success("LOGIN_HISTORY_LIST_SUCCESS", "로그인 이력 조회 성공", result));
+        return ResponseEntity.ok(
+                ApiResponse.success(
+                        SuccessCode.ADMIN_LOGIN_HISTORY_LIST_SUCCESS.getCode(),
+                        SuccessCode.ADMIN_LOGIN_HISTORY_LIST_SUCCESS.getMessage(),
+                        result
+                )
+        );
     }
 }

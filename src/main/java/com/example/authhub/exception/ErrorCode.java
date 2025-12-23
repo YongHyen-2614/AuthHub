@@ -18,7 +18,13 @@ public enum ErrorCode {
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "A005", "사용자를 찾을 수 없습니다."),
     INVALID_CLIENT(HttpStatus.BAD_REQUEST, "A006", "유효하지 않은 clientId 입니다."),
     INVALID_AUTHORIZATION_HEADER(HttpStatus.UNAUTHORIZED, "A007", "Authorization 헤더가 유효하지 않습니다."),
-    ALREADY_LOGGED_IN(HttpStatus.BAD_REQUEST, "A008", "이미 로그인 되었습니다."),;
+    ALREADY_LOGGED_IN(HttpStatus.BAD_REQUEST, "A008", "이미 로그인 되었습니다."),
+
+    /* Admin */
+    FORBIDDEN(HttpStatus.FORBIDDEN, "A009", "권한이 없습니다."),
+    CLIENT_ALREADY_EXISTS(HttpStatus.BAD_REQUEST, "A010", "이미 존재하는 clientId 입니다."),
+    CLIENT_NOT_FOUND(HttpStatus.NOT_FOUND, "A011", "Client를 찾을 수 없습니다."),
+    INVALID_VALIDITY_SECONDS(HttpStatus.BAD_REQUEST, "A012", "토큰 만료 시간 값이 올바르지 않습니다.");
 
     private final HttpStatus status;
     private final String code;
